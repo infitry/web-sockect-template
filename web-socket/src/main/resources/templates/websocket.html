@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>websocket</title>
+<script type="text/javascript" src="/js/jquery-1.12.4.min.js" ></script>
+<script type="text/javascript" src="/js/sockjs.min.js" ></script>
+<script type="text/javascript" src="/js/stomp.min.js" ></script>
+</head>
+<body>
+	<div>
+		<h2>chat room</h2>
+		<div>
+			<div style="width: 1000px; height: 500px; border: solid 1px black">
+				<ul id="chatContent">
+				</ul>
+			</div>
+			<div>
+				<div>
+					접속자명 : <input type="text" id="from"/>
+				</div>
+				<div>
+					내용 : <input type="text" id="text"/>
+					<button type="button" onclick="sendMessage();">전송</button>
+				</div>
+				
+				<div>
+					<button type="button" class="connection" onclick="connect(1);">채팅방1</button>
+					<button type="button" class="connection" onclick="connect(2);">채팅방2</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<script type="text/javascript">
+		var chat = {
+			socket : null,
+			stompClient : null,
+			type : ''
+		}
+	
+		$(function() {
+			$('#text').on('keyup', function(e) {
+				if (e.keyCode == '13') {
+					sendMessage();
+				}
+			});
+			
+			$('.connection').on('click', function() {
+				$('.connection').attr('disabled', true);
+			});
+		});
+		
+		function connect(type) {
+			chat.socket = new SockJS("/ws");
+			chat.stompClient = Stomp.over(chat.socket);
+			
+			if (type == '1') {
+				chat.stompClient.connect({}, function(frame) {
+					console.log('Connected: ' + frame);
+					chat.stompClient.subscribe('/message/send', function(msg) {
+						console.log('msg :: ' + msg);
+						var msg = JSON.parse(msg.body);
+						printMessage(msg.from, msg.text);
+					});
+				});
+			} else if (type == '2') {
+				chat.stompClient.connect({}, function(frame) {
+					console.log('Connected: ' + frame);
+					chat.stompClient.subscribe('/message/send2', function(msg) {
+						console.log('msg :: ' + msg);
+						var msg = JSON.parse(msg.body);
+						printMessage(msg.from, msg.text);
+					});
+				});
+			}
+			
+			chat.type = type;
+		}
+		
+		function disconnect() {
+			if (chat.stompClient !== null) {
+				chat.stompClient.disconnect();
+				console.log("Disconnected");
+			}
+		}
+		
+		function sendMessage() {
+			var text = $('#text').val();
+			var from = $('#from').val();
+			
+			if (text == '' || text == undefined) {
+				return false;
+			}
+			var url = '';
+			if (chat.type == '1') {
+				url = '/app/send';
+			} else {
+				url = '/app/send2';
+			}
+			chat.stompClient.send(url, {}, JSON.stringify({'from': from, 'text': text}));
+			$('#text').val('');
+		}
+		
+		function printMessage(from, text) {
+			$('#chatContent').append('<li>' + from + ' : ' + text + '</li>');
+		}
+	</script>
+</body>
+</html>
